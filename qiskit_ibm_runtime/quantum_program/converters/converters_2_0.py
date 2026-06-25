@@ -1,6 +1,6 @@
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2025-2026.
+# (C) Copyright IBM 2026.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,13 +19,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from ibm_quantum_schemas.common import (
-    F64TensorModel,
+    CompressedQpyDataV13ToV17Model,
+    CompressedTensorModel,
+    F64CompressedTensorModel,
     PauliLindbladMapModel,
-    QpyDataV13ToV17Model,
     SamplexModelSSV1ToSSV4,
-    TensorModel,
 )
-from ibm_quantum_schemas.executor.version_1_1 import (
+from ibm_quantum_schemas.executor.version_2_0_dev import (
     CircuitItemModel,
     ParamsModel,
     QuantumProgramModel,
@@ -41,8 +41,8 @@ if TYPE_CHECKING:
     from qiskit.circuit import QuantumCircuit
 
 
-def quantum_program_from_1_1(model: ParamsModel) -> tuple[QuantumProgram, ExecutorOptions]:
-    """Convert a V1.1 model to a pair of program and options."""
+def quantum_program_from_2_0(model: ParamsModel) -> tuple[QuantumProgram, ExecutorOptions]:
+    """Convert a V2.0 model to a pair of program and options."""
     program_model = model.quantum_program
     circuits: list[QuantumCircuit] = program_model.circuits.to_python(use_cached=True)
     items: list[CircuitItem | SamplexItem] = []
@@ -61,7 +61,7 @@ def quantum_program_from_1_1(model: ParamsModel) -> tuple[QuantumProgram, Execut
             samplex = model_item.samplex.to_samplex(use_cached=True)
             samplex_arguments = samplex.inputs().make_broadcastable()
             for name, value in model_item.samplex_arguments.items():
-                if isinstance(value, TensorModel):
+                if isinstance(value, CompressedTensorModel):
                     samplex_arguments[name] = value.to_numpy()
                 elif isinstance(value, PauliLindbladMapModel):
                     samplex_arguments[name] = value.to_pauli_lindblad_map()
@@ -97,8 +97,8 @@ def quantum_program_from_1_1(model: ParamsModel) -> tuple[QuantumProgram, Execut
     return quantum_program, options
 
 
-def quantum_program_to_1_1(program: QuantumProgram, options: ExecutorOptions) -> ParamsModel:
-    """Convert a :class:`~.QuantumProgram` to a V1.1 model."""
+def quantum_program_to_2_0(program: QuantumProgram, options: ExecutorOptions) -> ParamsModel:
+    """Convert a :class:`~.QuantumProgram` to a V2.0 model."""
     model_items = []
     circuits = []
     for item in program.items:
@@ -106,7 +106,7 @@ def quantum_program_to_1_1(program: QuantumProgram, options: ExecutorOptions) ->
         chunk_size = "auto" if item.chunk_size is None else item.chunk_size
         if isinstance(item, CircuitItem):
             model_item = CircuitItemModel(
-                circuit_arguments=F64TensorModel.from_numpy(item.circuit_arguments),
+                circuit_arguments=F64CompressedTensorModel.from_numpy(item.circuit_arguments),
                 chunk_size=chunk_size,
                 shape=[],  # Not yet supported
             )
@@ -116,7 +116,7 @@ def quantum_program_to_1_1(program: QuantumProgram, options: ExecutorOptions) ->
                 if spec.name in item.samplex_arguments:
                     name, value = spec.name, item.samplex_arguments[spec.name]
                     if isinstance(spec, TensorSpecification) or isinstance(value, np.ndarray):
-                        arguments[name] = TensorModel.from_numpy(value)
+                        arguments[name] = CompressedTensorModel.from_numpy(value)
                     elif isinstance(spec, PauliLindbladMapSpecification):
                         arguments[name] = PauliLindbladMapModel.from_pauli_lindblad_map(value)
                     else:
@@ -141,7 +141,9 @@ def quantum_program_to_1_1(program: QuantumProgram, options: ExecutorOptions) ->
     return ParamsModel(
         quantum_program=QuantumProgramModel(
             shots=program.shots,
-            circuits=QpyDataV13ToV17Model.from_python(circuits, qpy_version=get_qpy_version(17)),
+            circuits=CompressedQpyDataV13ToV17Model.from_python(
+                circuits, qpy_version=get_qpy_version(17)
+            ),
             items=model_items,
             meas_level=program.meas_level,
             passthrough_data=program.passthrough_data,

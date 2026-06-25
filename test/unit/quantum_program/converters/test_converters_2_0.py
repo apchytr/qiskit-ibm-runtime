@@ -15,8 +15,8 @@
 from datetime import datetime, timezone
 
 import numpy as np
-from ibm_quantum_schemas.common import TensorModel
-from ibm_quantum_schemas.executor.version_1_1 import (
+from ibm_quantum_schemas.common import CompressedTensorModel
+from ibm_quantum_schemas.executor.version_2_0_dev import (
     ChunkPart,
     ChunkSpan,
     ItemMetadataModel,
@@ -30,12 +30,12 @@ from qiskit.circuit import Parameter, QuantumCircuit
 from qiskit.quantum_info import PauliLindbladMap
 from samplomatic import InjectNoise, Twirl, build
 
-from qiskit_ibm_runtime.decoders.quantum_program.converters import quantum_program_result_from_1_1
+from qiskit_ibm_runtime.decoders.quantum_program.converters import quantum_program_result_from_2_0
 from qiskit_ibm_runtime.options_models.executor_options import ExecutionOptions, ExecutorOptions
 from qiskit_ibm_runtime.quantum_program import QuantumProgram
 from qiskit_ibm_runtime.quantum_program.converters import (
-    quantum_program_from_1_1,
-    quantum_program_to_1_1,
+    quantum_program_from_2_0,
+    quantum_program_to_2_0,
 )
 from qiskit_ibm_runtime.quantum_program.quantum_program import CircuitItem, SamplexItem
 
@@ -45,8 +45,8 @@ from ....ibm_test_case import IBMTestCase
 class TestQuantumProgramConverters(IBMTestCase):
     """Tests the quantum program converters."""
 
-    def test_quantum_program_to_1_1(self):
-        """Test the function ``quantum_program_to_1_1``."""
+    def test_quantum_program_to_2_0(self):
+        """Test the function ``quantum_program_to_2_0``."""
         shots = 100
 
         noise_models = [
@@ -95,9 +95,9 @@ class TestQuantumProgramConverters(IBMTestCase):
             experimental=experimental_opts,
         )
 
-        params_model = quantum_program_to_1_1(quantum_program, options)
+        params_model = quantum_program_to_2_0(quantum_program, options)
 
-        self.assertEqual(params_model.schema_version, "v1.1")
+        self.assertEqual(params_model.schema_version, "v2.0")
         self.assertEqual(params_model.options.init_qubits, False)
         self.assertEqual(params_model.options.rep_delay, None)
         self.assertEqual(params_model.options.scheduler_timing, True)
@@ -137,7 +137,7 @@ class TestQuantumProgramConverters(IBMTestCase):
 
         self.assertEqual(quantum_program_model.circuits.to_python(), [circuit1, template_circuit])
 
-    def test_quantum_program_to_1_1_no_argument(self):
+    def test_quantum_program_to_2_0_no_argument(self):
         """Test when there are no circuit arguments, samplex arguments, and chunk size."""
         quantum_program = QuantumProgram(100)
 
@@ -156,7 +156,7 @@ class TestQuantumProgramConverters(IBMTestCase):
             samplex=samplex,
         )
 
-        params_model = quantum_program_to_1_1(quantum_program, ExecutorOptions())
+        params_model = quantum_program_to_2_0(quantum_program, ExecutorOptions())
         quantum_program_model = params_model.quantum_program
 
         circuit_item_model = quantum_program_model.items[0]
@@ -168,8 +168,8 @@ class TestQuantumProgramConverters(IBMTestCase):
         self.assertEqual(samplex_item_model.chunk_size, "auto")
         self.assertEqual(samplex_item_model.samplex_arguments, {})
 
-    def test_quantum_program_result_from_1_1(self):
-        """Test the function ``quantum_program_result_from_1_1``."""
+    def test_quantum_program_result_from_2_0(self):
+        """Test the function ``quantum_program_result_from_2_0``."""
         meas1 = np.array([[False], [True], [True]])
         meas2 = np.array([[True, True], [True, False], [False, False]])
         meas_flips = np.array([[False, False]])
@@ -186,7 +186,7 @@ class TestQuantumProgramConverters(IBMTestCase):
         )
         metadata_model = MetadataModel(chunk_timing=[chunk_model])
         result1_model = QuantumProgramResultItemModel(
-            results={"meas": TensorModel.from_numpy(meas1)}, metadata={}
+            results={"meas": CompressedTensorModel.from_numpy(meas1)}, metadata={}
         )
         item2_metadata_model = ItemMetadataModel(
             scheduler_timing=SchedulerTimingModel(timing="timing", circuit_duration=3),
@@ -201,8 +201,8 @@ class TestQuantumProgramConverters(IBMTestCase):
         )
         result2_model = QuantumProgramResultItemModel(
             results={
-                "meas": TensorModel.from_numpy(meas2),
-                "measurement_flips.meas": TensorModel.from_numpy(meas_flips),
+                "meas": CompressedTensorModel.from_numpy(meas2),
+                "measurement_flips.meas": CompressedTensorModel.from_numpy(meas_flips),
             },
             metadata=item2_metadata_model,
         )
@@ -213,7 +213,7 @@ class TestQuantumProgramConverters(IBMTestCase):
             passthrough_data=passthrough_data,
         )
 
-        result = quantum_program_result_from_1_1(result_model)
+        result = quantum_program_result_from_2_0(result_model)
 
         self.assertTrue(np.array_equal(result[0]["meas"], meas1))
         self.assertTrue(np.array_equal(result[1]["meas"], meas2))
@@ -249,8 +249,8 @@ class TestQuantumProgramConverters(IBMTestCase):
         options.execution.init_qubits = False
         options.experimental = {"key": "value"}
 
-        params_model = quantum_program_to_1_1(quantum_program, options)
-        quantum_program_out, options_out = quantum_program_from_1_1(params_model)
+        params_model = quantum_program_to_2_0(quantum_program, options)
+        quantum_program_out, options_out = quantum_program_from_2_0(params_model)
 
         self.assertEqual(options_out, options)
 
