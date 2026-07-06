@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from ibm_quantum_schemas.common import (
-    CompressedQpyDataV13ToV17Model,
+    CompressedQpyDataModel,
     CompressedTensorModel,
     F64CompressedTensorModel,
     PauliLindbladMapModel,
@@ -141,9 +141,7 @@ def quantum_program_to_2_0(program: QuantumProgram, options: ExecutorOptions) ->
     return ParamsModel(
         quantum_program=QuantumProgramModel(
             shots=program.shots,
-            circuits=CompressedQpyDataV13ToV17Model.from_python(
-                circuits, qpy_version=get_qpy_version(17)
-            ),
+            circuits=CompressedQpyDataModel.from_python(circuits, qpy_version=get_qpy_version(17)),
             items=model_items,
             meas_level=program.meas_level,
             passthrough_data=program.passthrough_data,
