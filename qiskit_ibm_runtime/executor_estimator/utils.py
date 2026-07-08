@@ -18,7 +18,7 @@ permanent location (qiskit-addons or qiskit core) in the future.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -167,6 +167,7 @@ def box_circuit(
     measure_annotations: str,
     twirling_strategy: str,
     inject_noise: bool = False,
+    add_tags: Literal["none", "unique_box", "unique_instance", "noise_ref"] = "none",
 ) -> QuantumCircuit:
     """Group the operations in the given ``circuit`` into boxes.
 
@@ -197,6 +198,7 @@ def box_circuit(
             ``inject_noise_targets`` and ``inject_noise_strategy`` set to ``"none"`` and
             ``"no_modification"``. See the Samplomatic API docs for more details regarding these
             values.
+        add_tags: Whether to include tags for the boxes.
 
     Returns:
         The boxed circuit.
@@ -221,6 +223,7 @@ def box_circuit(
         inject_noise_site="after",
         inject_noise_targets="gates" if inject_noise else "none",
         inject_noise_strategy="uniform_modification" if inject_noise else "no_modification",
+        add_tags=add_tags,
     )
     boxed_circuit = boxing_pm.run(prepared_circuit)
     return boxed_circuit
@@ -230,7 +233,8 @@ def options_to_boxing_pm_kwargs(  # type: ignore[no-untyped-def]
     twirling_options: TwirlingOptions,
     measure_noise_learning: MeasureNoiseLearningOptions | None,
     inject_noise: bool,
-):
+    add_tags: bool = False,
+) -> dict[str, Any]:
     """A helper to map options to kwargs for the boxing passmanager.
 
     Args:
@@ -238,9 +242,13 @@ def options_to_boxing_pm_kwargs(  # type: ignore[no-untyped-def]
         measure_noise_learning: The measure noise learning options. If provided, Twirled Readout
             Error eXtinction (TREX) mitigation method will be accounted for in boxing.
         inject_noise: Whether to inject noise.
+        add_tags: Whether to include tags for the boxes. ``False`` will cause no tags to be added
+            (will pass the "none" value to the relevant attribute), while ``True`` will cause tags
+            with the twirled boxes hash to be added (using the "unique_box" value of the relevant
+            attribute). These tags can help injecting noise in simulators.
 
     Returns:
-        Unique layers for each pub.
+        Options to the boxing passmanager.
     """
     return {
         "enable_gates": twirling_options.enable_gates or inject_noise,
@@ -248,6 +256,8 @@ def options_to_boxing_pm_kwargs(  # type: ignore[no-untyped-def]
         if twirling_options.enable_measure or (measure_noise_learning is not None)
         else "change_basis",
         "twirling_strategy": twirling_options.strategy.replace("-", "_"),
+        "inject_noise": inject_noise,
+        "add_tags": "unique_box" if add_tags else "none",
     }
 
 
@@ -256,6 +266,7 @@ def find_unique_layers(
     twirling_options: TwirlingOptions,
     measure_noise_learning: MeasureNoiseLearningOptions | None = None,
     inject_noise: bool = False,
+    add_tags: bool = False,
 ) -> list[CircuitInstruction]:
     """Return the unique boxed layers found across the given PUBs.
 
@@ -266,6 +277,7 @@ def find_unique_layers(
             Error eXtinction (TREX) mitigation method will be accounted for in boxing.
         inject_noise: Whether to add :class:`~samplomatic.InjectNoise` annotations to the boxes
             of gates.
+        add_tags: Whether to include tags for the boxes. Relevant mainly for debugging.
 
     Returns:
         Unique boxed layers found across the given PUBs.
@@ -274,10 +286,9 @@ def find_unique_layers(
         twirling_options,
         measure_noise_learning,
         inject_noise,
+        add_tags=add_tags,
     )
-    boxed_circuits = (
-        box_circuit(circuit=pub.circuit, inject_noise=inject_noise, **pm_kwargs) for pub in pubs
-    )
+    boxed_circuits = (box_circuit(circuit=pub.circuit, **pm_kwargs) for pub in pubs)
     instructions = (box for boxed_circuit in boxed_circuits for box in boxed_circuit)
     return find_unique_box_instructions(
         instructions=instructions, normalize_annotations=None, undress_boxes=True
