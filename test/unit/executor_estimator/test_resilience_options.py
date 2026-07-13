@@ -27,12 +27,15 @@ class TestResilienceOptionsDefaults(unittest.TestCase):
     def test_defaults(self):
         """All fields carry their documented default values."""
         opts = ResilienceOptions()
-        self.assertTrue(opts.measure_mitigation)
+        self.assertIsNone(opts.measure_mitigation)
         self.assertEqual(opts.measure_noise_learning.num_randomizations, 32)
         self.assertEqual(opts.measure_noise_learning.shots_per_randomization, "auto")
         self.assertFalse(opts.pec_mitigation)
         self.assertEqual(opts.pec.max_overhead, 100)
         self.assertEqual(opts.pec.noise_gain, "auto")
+        self.assertFalse(opts.zne_mitigation)
+        self.assertEqual(opts.zne.amplifier, "gate_folding")
+        self.assertEqual(opts.zne.noise_factors, "auto")
         self.assertIsNone(opts.noise_model_mapping)
 
     def test_set_all_options(self):
@@ -46,6 +49,8 @@ class TestResilienceOptionsDefaults(unittest.TestCase):
             measure_noise_learning={"num_randomizations": 64, "shots_per_randomization": 1024},
             pec_mitigation=True,
             pec={"max_overhead": 50, "noise_gain": 0.5},
+            zne_mitigation=True,
+            zne={"amplifier": "gate_folding_front", "noise_factors": [1, 3, 5]},
             noise_model_mapping=mapping,
         )
         self.assertFalse(opts.measure_mitigation)
@@ -54,6 +59,9 @@ class TestResilienceOptionsDefaults(unittest.TestCase):
         self.assertTrue(opts.pec_mitigation)
         self.assertEqual(opts.pec.max_overhead, 50)
         self.assertEqual(opts.pec.noise_gain, 0.5)
+        self.assertTrue(opts.zne_mitigation)
+        self.assertEqual(opts.zne.amplifier, "gate_folding_front")
+        self.assertEqual(list(opts.zne.noise_factors), [1, 3, 5])
         self.assertEqual(set(opts.noise_model_mapping.keys()), {"layer_0", "layer_1"})
 
 

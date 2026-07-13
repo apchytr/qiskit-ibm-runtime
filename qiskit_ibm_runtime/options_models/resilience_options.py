@@ -21,18 +21,23 @@ from qiskit.quantum_info import PauliLindbladMap  # noqa: TC002
 from .measure_noise_learning_options import MeasureNoiseLearningOptions
 from .pec_options import PecOptions
 from .utils import PRIMITIVES_CONFIG
+from .zne_options import ZneOptions
 
 
 @dataclass(config=PRIMITIVES_CONFIG)
 class ResilienceOptions:
     """Resilience options for V2 Estimator."""
 
-    measure_mitigation: bool = True
+    measure_mitigation: bool | None = None
     """Whether to enable measurement error mitigation method.
 
     If you enable measurement mitigation, you can fine-tune its noise learning
     by using :attr:`~measure_noise_learning`. See :class:`.~MeasureNoiseLearningOptions`
     for all measurement mitigation noise learning options.
+
+    If ``measure_mitigation`` is ``None``, it is determined by the according to the resilience
+    level: it is ``False`` for resilience level ``0``, and ``True`` for resilience levels ``1`` and
+    ``2``.
     """
 
     measure_noise_learning: MeasureNoiseLearningOptions = Field(
@@ -56,6 +61,23 @@ class ResilienceOptions:
     """Additional probabalistic error cancellation mitigation options.
 
     See :class:`PecOptions` for all options.
+    """
+
+    zne_mitigation: bool | None = None
+    """Whether to turn on Zero-Noise Extrapolation error mitigation method.
+
+    If you enable ZNE, you can fine-tune its options by using :attr:`~zne`. See
+    :class:`~.ZneOptions` for additional ZNE related options.
+
+    If ``zne_mitigation`` is ``None``, it is determined by the server according to the resilience
+    level: it is ``False`` for resilience levels ``0`` and ``1``, and ``True`` for resilience level
+    ``2``.
+    """
+
+    zne: ZneOptions = Field(default_factory=ZneOptions)
+    """Additional zero noise extrapolation mitigation options.
+
+    See :class:`ZneOptions` for all options.
     """
 
     noise_model_mapping: dict[str, PauliLindbladMap] | None = None
