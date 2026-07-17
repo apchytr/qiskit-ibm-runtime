@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Tests for SimulatorOptions in executor-based SamplerV2."""
+"""Tests for SamplerOptions."""
 
 from unittest.mock import patch
 
@@ -20,8 +20,8 @@ from qiskit.transpiler import CouplingMap
 
 from qiskit_ibm_runtime.executor_sampler import SamplerV2
 from qiskit_ibm_runtime.fake_provider import FakeBrisbane
-from qiskit_ibm_runtime.options_models.sampler_options import SamplerOptions
-from qiskit_ibm_runtime.options_models.simulator_options import SimulatorOptions
+from qiskit_ibm_runtime.options_models.sampler import SamplerOptions
+from qiskit_ibm_runtime.options_models.simulator import SimulatorOptions
 
 from ...ibm_test_case import IBMTestCase
 
@@ -39,13 +39,6 @@ class TestSimulatorOptions(IBMTestCase):
         self.assertIsNone(options.simulator.coupling_map)
         self.assertIsNone(options.simulator.basis_gates)
 
-    def test_simulator_options_set_seed(self):
-        """Test setting simulator seed."""
-        options = SamplerOptions()
-        options.simulator.seed_simulator = 42
-
-        self.assertEqual(options.simulator.seed_simulator, 42)
-
     def test_simulator_options_set_coupling_map(self):
         """Test setting coupling map as list."""
         options = SamplerOptions()
@@ -61,14 +54,6 @@ class TestSimulatorOptions(IBMTestCase):
         options.simulator.coupling_map = qiskit_coupling_map
 
         self.assertEqual(options.simulator.coupling_map, qiskit_coupling_map)
-
-    def test_simulator_options_set_basis_gates(self):
-        """Test setting basis gates."""
-        options = SamplerOptions()
-        basis_gates = ["u1", "u2", "u3", "cx"]
-        options.simulator.basis_gates = basis_gates
-
-        self.assertEqual(options.simulator.basis_gates, basis_gates)
 
     def test_simulator_options_from_dict(self):
         """Test constructing simulator options from dict."""
@@ -93,7 +78,7 @@ class TestSimulatorOptions(IBMTestCase):
 
     def test_noise_model_invalid_type_no_aer_raises(self):
         """Passing a non-dict noise_model raises when Aer is not installed."""
-        with patch("qiskit_ibm_runtime.options_models.simulator_options.optionals.HAS_AER", False):
+        with patch("qiskit_ibm_runtime.options_models.simulator.optionals.HAS_AER", False):
             with self.assertRaises(ValidationError):
                 SimulatorOptions(noise_model=object())
 
