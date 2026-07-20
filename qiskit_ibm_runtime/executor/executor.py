@@ -117,13 +117,21 @@ class Executor:
 
         Returns:
             A job.
+
+        Raises:
+            ValueError: If converters are not found for a given schema version.
+            TypeError: If the program metadata contains an unsupported type.
         """
         try:
             converter = QUANTUM_PROGRAM_PARAMS_CONVERTERS[self._SCHEMA_VERSION]
         except KeyError:
             raise ValueError(f"No converters for schema version {self._SCHEMA_VERSION}.")
 
-        params = converter.encoder(program, self.options)
+        try:
+            params = converter.encoder(program, self.options)
+        except TypeError as e:
+            type_name = str(e).split("type ")[-1].split(" is not")[0]
+            raise TypeError(f"Metadata contains a field of unsupported type '{type_name}'.") from e
         runtime_options = asdict(self.options.environment)  # type: ignore[call-overload]
         runtime_options["backend"] = self._backend.name
         runtime_options["instance"] = self._backend._instance
