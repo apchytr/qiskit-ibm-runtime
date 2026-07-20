@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 from samplomatic import build
@@ -107,9 +108,11 @@ def prepare(
             else:
                 param_values = None
 
+            circuit = deepcopy(pub.circuit)
+            circuit.metadata = {}  # clear the metadata as it's now passthrough data
             items.append(
                 CircuitItem(
-                    circuit=pub.circuit,
+                    circuit=circuit,
                     circuit_arguments=param_values,
                 )
             )
