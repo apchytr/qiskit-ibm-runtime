@@ -131,7 +131,9 @@ class Executor:
             params = converter.encoder(program, self.options)
         except TypeError as e:
             type_name = str(e).split("type ")[-1].split(" is not")[0]
-            raise TypeError(f"Metadata contains a field of unsupported type '{type_name}'.") from e
+            raise TypeError(
+                f"Program metadata contains a field of unsupported type '{type_name}'."
+            ) from e
         runtime_options = asdict(self.options.environment)  # type: ignore[call-overload]
         runtime_options["backend"] = self._backend.name
         runtime_options["instance"] = self._backend._instance
