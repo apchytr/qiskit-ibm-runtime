@@ -12,6 +12,7 @@
 
 """Tests for InsertNoisePass."""
 
+import unittest
 import warnings
 
 import numpy as np
@@ -19,11 +20,14 @@ from ddt import data, ddt, unpack
 from qiskit.circuit import Barrier, QuantumCircuit
 from qiskit.quantum_info import DensityMatrix, PauliLindbladMap
 from qiskit.transpiler import PassManager
-from qiskit_aer import AerSimulator
-
-from qiskit_ibm_runtime.aer_executor.insert_noise_pass import InsertNoisePass
+from qiskit.utils import optionals
 
 from ...ibm_test_case import IBMTestCase
+
+if optionals.HAS_AER:
+    from qiskit_aer import AerSimulator
+
+    from qiskit_ibm_runtime.aer_executor.insert_noise_pass import InsertNoisePass
 
 
 def _circuit_with_barrier(n_qubits: int, label: str) -> QuantumCircuit:
@@ -38,6 +42,7 @@ def _noise_error_ops(circuit: QuantumCircuit) -> list:
 
 
 @ddt
+@unittest.skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestInsertNoisePass(IBMTestCase):
     """Tests for InsertNoisePass."""
 
