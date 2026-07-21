@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from qiskit.circuit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler import TransformationPass
+from qiskit_aer.noise import PauliLindbladError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,9 +30,6 @@ if TYPE_CHECKING:
     from qiskit.circuit import Qubit
     from qiskit.dagcircuit import DAGCircuit, DAGOpNode
     from qiskit.quantum_info import PauliLindbladMap
-
-from qiskit.utils.optionals import HAS_AER
-from qiskit_aer.noise import PauliLindbladError
 
 
 def _find_qubit(dag: DAGCircuit, qubit: Qubit) -> int:
@@ -61,12 +59,6 @@ class InsertNoisePass(TransformationPass):
         noise_scale: float = 1.0,
         warn_absent: bool = True,
     ):
-        if not HAS_AER:
-            raise ValueError(
-                "Cannot import this file since 'qiskit-aer' is not installed. Install 'qiskit-aer' "
-                "and try again."
-            )
-
         self._noise_dict = noise_dict or {}
         self._noise_after = noise_after
         self._noise_scale = noise_scale

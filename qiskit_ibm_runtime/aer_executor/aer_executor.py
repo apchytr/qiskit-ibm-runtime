@@ -17,13 +17,11 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from qiskit.utils.optionals import HAS_AER
-
 from .run_quantum_program import run_quantum_program
 
 if TYPE_CHECKING:
-    from qiskit.providers import BackendV2
     from qiskit.quantum_info import PauliLindbladMap
+    from qiskit_aer import AerSimulator
 
     from ..quantum_program import QuantumProgram
     from ..results import QuantumProgramResult
@@ -46,23 +44,12 @@ class AerRuntimeJob:
 
     def __init__(
         self,
-        qasm_simulator: BackendV2,
+        qasm_simulator: AerSimulator,
         program: QuantumProgram,
         noise_dict: dict[str, PauliLindbladMap] | None = None,
         angle_decimals: int = 5,
         warn_absent: bool = True,
     ):
-        if not HAS_AER:
-            raise ValueError(
-                "Cannot initialize object of type 'AerExecutor' since 'qiskit-aer' is not "
-                "installed. Install 'qiskit-aer' and try again."
-            )
-
-        from qiskit_aer import AerSimulator
-
-        if not isinstance(qasm_simulator, AerSimulator):
-            raise ValueError("``qasm_simulator`` needs to be an ``AerSimulator`` object.")
-
         self._qasm_simulator = qasm_simulator
         self._program = program
         self._noise_dict = noise_dict
@@ -131,22 +118,11 @@ class AerExecutor:
 
     def __init__(
         self,
-        qasm_simulator: BackendV2,
+        qasm_simulator: AerSimulator,
         noise_dict: dict[str, PauliLindbladMap] | None = None,
         angle_decimals: int = 5,
         warn_absent: bool = True,
     ):
-        if not HAS_AER:
-            raise ValueError(
-                "Cannot initialize object of type 'AerExecutor' since 'qiskit-aer' is not "
-                "installed. Install 'qiskit-aer' and try again."
-            )
-
-        from qiskit_aer import AerSimulator
-
-        if not isinstance(qasm_simulator, AerSimulator):
-            raise ValueError("``qasm_simulator`` needs to be an ``AerSimulator`` object.")
-
         self._qasm_simulator = qasm_simulator
         self._noise_dict = noise_dict
         self._angle_decimals = angle_decimals

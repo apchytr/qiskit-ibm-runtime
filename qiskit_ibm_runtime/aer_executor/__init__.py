@@ -12,4 +12,8 @@
 
 """Aer-based local executor for QuantumProgram objects."""
 
+from qiskit.utils.optionals import HAS_AER
+
+HAS_AER.require_now("qiskit_ibm_runtime.aer_executor")
+
 from .aer_executor import AerExecutor, AerRuntimeJob
