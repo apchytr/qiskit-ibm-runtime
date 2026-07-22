@@ -34,7 +34,7 @@ class AerRuntimeJob:
     immediately when :meth:`result` is called.
 
     Args:
-        qasm_simulator: The Aer simulator to run on.
+        backend: The Aer simulator to run on.
         program: The quantum program to execute.
         noise_dict: A map from barrier label refs to Pauli-Lindblad noise maps.
         angle_decimals: Rounding precision for gate angles (in units of π/2).
@@ -44,13 +44,13 @@ class AerRuntimeJob:
 
     def __init__(
         self,
-        qasm_simulator: AerSimulator,
+        backend: AerSimulator,
         program: QuantumProgram,
         noise_dict: dict[str, PauliLindbladMap] | None = None,
         angle_decimals: int = 5,
         warn_absent: bool = True,
     ):
-        self._qasm_simulator = qasm_simulator
+        self._backend = backend
         self._program = program
         self._noise_dict = noise_dict
         self._angle_decimals = angle_decimals
@@ -59,7 +59,7 @@ class AerRuntimeJob:
         self.tags: list[str] = []  # interface compatibility with real Executor
 
         self._result = run_quantum_program(
-            qasm_simulator=self._qasm_simulator,
+            qasm_simulator=self._backend,
             program=self._program,
             noise_dict=self._noise_dict,
             angle_decimals=self._angle_decimals,
@@ -105,7 +105,7 @@ class AerExecutor:
       set, independent of global circuit qubit numbering.
 
     Args:
-        qasm_simulator: The Aer simulator to run programs on.
+        backend: The Aer simulator to run programs on.
         noise_dict: A map from barrier label refs to Pauli-Lindblad noise maps.  Pass
             ``None`` (default) to run without noise injection.
         angle_decimals: Gate angles are rounded to the nearest multiple of π/2 at this
@@ -118,12 +118,12 @@ class AerExecutor:
 
     def __init__(
         self,
-        qasm_simulator: AerSimulator,
+        backend: AerSimulator,
         noise_dict: dict[str, PauliLindbladMap] | None = None,
         angle_decimals: int = 5,
         warn_absent: bool = True,
     ):
-        self._qasm_simulator = qasm_simulator
+        self._backend = backend
         self._noise_dict = noise_dict
         self._angle_decimals = angle_decimals
         self._warn_absent = warn_absent
@@ -138,7 +138,7 @@ class AerExecutor:
             A job whose result is immediately available.
         """
         return AerRuntimeJob(
-            qasm_simulator=self._qasm_simulator,
+            backend=self._backend,
             program=program,
             noise_dict=self._noise_dict,
             angle_decimals=self._angle_decimals,
