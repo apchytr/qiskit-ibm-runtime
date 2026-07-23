@@ -17,6 +17,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from qiskit.utils.optionals import HAS_AER
+
 from .run_quantum_program import run_quantum_program
 
 if TYPE_CHECKING:
@@ -27,6 +29,7 @@ if TYPE_CHECKING:
     from ..results import QuantumProgramResult
 
 
+@HAS_AER.require_in_instance
 class AerRuntimeJob:
     """Job object returned by :meth:`AerExecutor.run`.
 
@@ -75,6 +78,7 @@ class AerRuntimeJob:
         return self._result
 
 
+@HAS_AER.require_in_instance
 class AerExecutor:
     """Local Aer-based executor mimicking the IBM Runtime executor interface.
 

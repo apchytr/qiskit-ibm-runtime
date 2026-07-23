@@ -36,6 +36,7 @@ def _find_qubit(dag: DAGCircuit, qubit: Qubit) -> int:
     return dag.find_bit(qubit).index
 
 
+@HAS_AER.require_in_instance
 class InsertNoisePass(TransformationPass):
     """Transpiler pass that inserts Pauli-Lindblad noise channels after (or before) tagged barriers.
 
@@ -100,7 +101,6 @@ class InsertNoisePass(TransformationPass):
 
         return tag
 
-    @HAS_AER.require_in_call
     def _new_subdag(
         self, op_node: DAGOpNode, find_qubit: Callable[[Qubit], int]
     ) -> DAGCircuit | None:
