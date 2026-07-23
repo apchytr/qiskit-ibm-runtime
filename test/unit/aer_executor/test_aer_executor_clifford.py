@@ -219,11 +219,11 @@ class TestAerExecutor(IBMTestCase):
         self.assertTrue((item_data["c"][3] == [True, True]).all())
 
     def test_samplex_item_with_parameter_sweep(self):
-        """Run a parameterized CircuitItem by supplying circuit_arguments directly.
+        """Run a parameterized SamplexItem by supplying parameter_values directly.
 
         Uses RX(theta) bitflips (theta ∈ {0, π}) on two qubits to produce four
         deterministic outcomes, verifying that circuit_arguments are bound correctly
-        in the CircuitItem branch of run_quantum_program.
+        in the SamplexItem branch of run_quantum_program.
         """
         shots = 128
 
@@ -239,15 +239,21 @@ class TestAerExecutor(IBMTestCase):
             initial_layout=[17, 27],
             optimization_level=0,
         )
+        pm.post_scheduling = generate_boxing_pass_manager()
         transpiled = pm.run(qc)
+        template_circuit, samplex = build(transpiled)
 
         # circuit.parameters sorts alphabetically: [phi, theta]
         # shape (4, 2): 4 sweep configurations, 2 parameters each
-        circuit_arguments = np.array(
+        parameter_values = np.array(
             [[0.0, 0.0], [np.pi, 0.0], [0.0, np.pi], [np.pi, np.pi]], dtype=float
         )
         program = QuantumProgram(shots=shots)
-        program.append_circuit_item(transpiled, circuit_arguments=circuit_arguments)
+        program.append_samplex_item(
+            template_circuit,
+            samplex=samplex,
+            samplex_arguments={"parameter_values": parameter_values},
+        )
 
         executor = AerExecutor(AerSimulator(method="stabilizer"), angle_decimals=5)
         result = executor.run(program).result()
@@ -258,14 +264,17 @@ class TestAerExecutor(IBMTestCase):
         # Result shape: (4, shots, 2)
         self.assertEqual(item_data["c"].shape, (4, shots, 2))
 
+        # bit flip correction
+        corrected_data = item_data["c"] ^ item_data["measurement_flips.c"]
+
         # phi=0, theta=0 → |00⟩
-        self.assertTrue((item_data["c"][0] == [False, False]).all())
+        self.assertTrue((corrected_data[0] == [False, False]).all())
         # phi=π, theta=0 → |01⟩ (phi acts on q1, LSB-first: bit1=True)
-        self.assertTrue((item_data["c"][1] == [False, True]).all())
+        self.assertTrue((corrected_data[1] == [False, True]).all())
         # phi=0, theta=π → |10⟩ (theta acts on q0, LSB-first: bit0=True)
-        self.assertTrue((item_data["c"][2] == [True, False]).all())
+        self.assertTrue((corrected_data[2] == [True, False]).all())
         # phi=π, theta=π → |11⟩
-        self.assertTrue((item_data["c"][3] == [True, True]).all())
+        self.assertTrue((corrected_data[3] == [True, True]).all())
 
     def test_samplex_item_with_broadcast_sweep(self):
         """Run a Pauli-twirled circuit with a parameter sweep over input bitflips.
