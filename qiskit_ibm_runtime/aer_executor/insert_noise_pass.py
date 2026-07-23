@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from qiskit.circuit import QuantumCircuit
 from qiskit.converters import circuit_to_dag
 from qiskit.transpiler import TransformationPass
-from qiskit_aer.noise import PauliLindbladError
+from qiskit.utils.optionals import HAS_AER
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -100,9 +100,12 @@ class InsertNoisePass(TransformationPass):
 
         return tag
 
+    @HAS_AER.require_in_call
     def _new_subdag(
         self, op_node: DAGOpNode, find_qubit: Callable[[Qubit], int]
     ) -> DAGCircuit | None:
+        from qiskit_aer.noise import PauliLindbladError
+
         # Qiskit has no public API for reading barrier labels; _label is the only option.
         label = op_node.op._label
         if label is None:

@@ -21,7 +21,7 @@ import numpy as np
 from qiskit.primitives.containers.bindings_array import BindingsArray
 from qiskit.primitives.containers.sampler_pub import SamplerPub
 from qiskit.transpiler import PassManager
-from qiskit_aer.primitives import SamplerV2 as AerSamplerV2
+from qiskit.utils.optionals import HAS_AER
 
 from ..quantum_program import CircuitItem, SamplexItem
 from ..results import QuantumProgramResult
@@ -44,6 +44,7 @@ def _round_to_clifford(values: np.ndarray, decimals: int) -> np.ndarray:
     return np.round(values / (np.pi / 2), decimals=decimals) * (np.pi / 2)
 
 
+@HAS_AER.require_in_call
 def run_quantum_program(
     qasm_simulator: AerSimulator,
     program: QuantumProgram,
@@ -64,6 +65,8 @@ def run_quantum_program(
     Returns:
         Results of simulation.
     """
+    from qiskit_aer.primitives import SamplerV2 as AerSamplerV2
+
     # Generate a sampler
     backend = deepcopy(qasm_simulator)
     backend.set_max_qubits(10000)
