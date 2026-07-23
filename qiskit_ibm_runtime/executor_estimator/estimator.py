@@ -169,9 +169,30 @@ class EstimatorV2(BaseEstimatorV2):
         """Return the unique boxed layers found across the given PUBs.
 
         The returned list contains one instance of each distinct boxed layer (represented as a
-        :class:`~.CircuitInstruction`) appearing in the input PUBs. This list can be passed
-        directly to the :meth:`~.qiskit_ibm_runtime.noise_learner_v3.NoiseLearnerV3.run` method
-        for characterization, avoiding redundant learning of identical layers.
+        :class:`~.CircuitInstruction`) appearing in the input PUBs.
+
+        For noise learning, keep only the boxes that carry an :class:`~samplomatic.InjectNoise`
+        annotation:
+
+        .. code-block:: python
+
+            from samplomatic import InjectNoise
+            from samplomatic.utils import get_annotation
+
+            est = EstimatorV2(mode, options)
+            est.options.resilience.pec_mitigation = True
+
+            layers = [
+                layer
+                for layer in est.find_unique_layers(pubs)
+                if get_annotation(layer.operation, InjectNoise)
+            ]
+
+            results = NoiseLearnerV3(mode).run(layers).result()
+            noise_model = results.to_dict(layers)
+
+            # Assign the learned model so PEC uses it on the next run.
+            est.options.resilience.noise_model_mapping = noise_model
 
         Args:
             pubs: The list of PUBs to return a list of unique boxes for.
