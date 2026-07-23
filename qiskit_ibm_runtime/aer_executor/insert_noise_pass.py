@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from qiskit.dagcircuit import DAGCircuit, DAGOpNode
     from qiskit.quantum_info import PauliLindbladMap
 
+if HAS_AER:
+    from qiskit_aer.noise import PauliLindbladError
+
 
 def _find_qubit(dag: DAGCircuit, qubit: Qubit) -> int:
     return dag.find_bit(qubit).index
@@ -104,8 +107,6 @@ class InsertNoisePass(TransformationPass):
     def _new_subdag(
         self, op_node: DAGOpNode, find_qubit: Callable[[Qubit], int]
     ) -> DAGCircuit | None:
-        from qiskit_aer.noise import PauliLindbladError
-
         # Qiskit has no public API for reading barrier labels; _label is the only option.
         label = op_node.op._label
         if label is None:

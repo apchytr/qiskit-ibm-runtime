@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 
     from ..quantum_program import QuantumProgram
 
+if HAS_AER:
+    from qiskit_aer.primitives import SamplerV2 as AerSamplerV2
+
 
 def _round_to_clifford(values: np.ndarray, decimals: int) -> np.ndarray:
     """Round angles to the nearest multiple of π/2 at ``decimals`` decimal places.
@@ -65,8 +68,6 @@ def run_quantum_program(
     Returns:
         Results of simulation.
     """
-    from qiskit_aer.primitives import SamplerV2 as AerSamplerV2
-
     # Generate a sampler
     backend = deepcopy(qasm_simulator)
     backend.set_max_qubits(10000)
