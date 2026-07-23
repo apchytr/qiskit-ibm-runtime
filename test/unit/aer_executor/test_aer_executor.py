@@ -10,14 +10,19 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Test AerExecutor with a Clifford circuit on the stabilizer simulator."""
+"""Test AerExecutor."""
 
+from itertools import islice, product
 from unittest import skipUnless
 
 import numpy as np
+from ddt import data, ddt, unpack
 from qiskit.circuit import Parameter, QuantumCircuit
+from qiskit.primitives.containers.bit_array import BitArray
+from qiskit.quantum_info import PauliLindbladMap
 from qiskit.transpiler import generate_preset_pass_manager
 from qiskit.utils import optionals
+from samplomatic import Tag, Twirl
 from samplomatic.builders.build import build
 from samplomatic.transpiler import generate_boxing_pass_manager
 
@@ -32,6 +37,62 @@ if optionals.HAS_AER:
     from qiskit_ibm_runtime.aer_executor import AerExecutor
 
 
+def _batched(iterable, n, *, strict=False):
+    # _batched('ABCDEFG', 3) → ABC DEF G
+    if n < 1:
+        raise ValueError("n must be at least one")
+    iterator = iter(iterable)
+    while batch := tuple(islice(iterator, n)):
+        if strict and len(batch) != n:
+            raise ValueError("_batched(): incomplete batch")
+        yield batch
+
+
+def _circ_a():
+    num_qubits = 2
+    active_qubits = list(range(num_qubits))
+
+    qc_boxed = QuantumCircuit(num_qubits, num_qubits)
+    with qc_boxed.box(
+        annotations=[
+            Twirl(dressing="left"),
+            Tag(ref="r0"),
+        ]
+    ):  # pyright: ignore[reportGeneralTypeIssues]
+        for edge in _batched(active_qubits, 2):
+            if len(edge) == 2:
+                qc_boxed.cz(*edge)
+
+    with qc_boxed.box(annotations=[Twirl(dressing="right")]):
+        qc_boxed.noop([0, 1])
+    return qc_boxed, active_qubits
+
+
+def _circ_b():
+    fez_backend = FakeFez()
+    coupling_map = fez_backend.coupling_map
+    active_qubits = list(range(fez_backend.num_qubits))
+
+    qc_boxed = QuantumCircuit(fez_backend.num_qubits, fez_backend.num_qubits)
+    with qc_boxed.box(
+        annotations=[
+            Twirl(dressing="left"),
+            Tag(ref="r0"),
+        ]
+    ):  # pyright: ignore[reportGeneralTypeIssues]
+        for edge in _batched(active_qubits, 2):
+            if edge in coupling_map:
+                qc_boxed.cz(*edge)
+            else:
+                qc_boxed.z(edge)
+
+    with qc_boxed.box(annotations=[Twirl(dressing="right")]):
+        qc_boxed.noop(active_qubits)
+
+    return qc_boxed, active_qubits
+
+
+@ddt
 @skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestAerExecutor(IBMTestCase):
     """Tests for AerExecutor."""
@@ -364,3 +425,60 @@ class TestAerExecutor(IBMTestCase):
 
         # theta=π, phi=π: CX|10⟩ = |11⟩, X on q1 → |10⟩
         self.assert_correct({"c": np.array([True, False])}, sweep_slice(1, 1))
+
+    @data(*product([True, False], ["a", "b"]))
+    @unpack
+    def test_noisy_simulation(self, noise, case):
+        """Test noisy simulation."""
+        if case == "a":
+            qc_boxed, active_qubits = _circ_a()
+        elif case == "b":
+            qc_boxed, active_qubits = _circ_b()
+        else:
+            raise ValueError("...")
+
+        qc_boxed.measure(active_qubits, active_qubits)
+
+        template_circuit, samplex = build(qc_boxed)
+
+        self.assertGreater(template_circuit.count_ops().get("rz", 0), 0)
+
+        shots_per_twirl = 1024
+        num_twirls = 1
+        num_shots_tot = shots_per_twirl * num_twirls
+
+        # Build a QuantumProgram using a SamplexItem
+        program = QuantumProgram(shots=shots_per_twirl)
+        program.append_samplex_item(
+            template_circuit,
+            samplex=samplex,
+            shape=(num_twirls,),
+        )
+
+        def _xi(i: int, n: int = len(active_qubits)) -> str:
+            ll = ["I"] * n
+            ll[i] = "X"
+            return "".join(reversed(ll))
+
+        if noise:
+            noise_dict = {
+                "r0": PauliLindbladMap.from_list(
+                    [(_xi(i), 1e-1) for i in range(len(active_qubits))]
+                ),
+            }
+        else:
+            noise_dict = None
+
+        # Run via AerExecutor
+        executor = AerExecutor(AerSimulator(method="stabilizer"), noise_dict=noise_dict)
+        job = executor.run(program)
+        result = job.result()
+
+        self.assertEqual(len(result), 1)
+
+        ba_c = BitArray.from_bool_array(result[0]["c"])
+        cts = ba_c.get_counts()
+        if noise:
+            self.assertGreater(num_shots_tot, cts.get("0" * len(active_qubits), 0))
+        else:
+            self.assertEqual(num_shots_tot, cts.get("0" * len(active_qubits), 0))
