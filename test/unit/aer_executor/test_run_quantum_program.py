@@ -12,7 +12,7 @@
 
 """Unit tests for run_quantum_program."""
 
-import unittest
+from unittest import skipUnless
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -29,7 +29,7 @@ if optionals.HAS_AER:
     from qiskit_ibm_runtime.aer_executor.run_quantum_program import run_quantum_program
 
 
-@unittest.skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
+@skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestRunQuantumProgram(IBMTestCase):
     """Test for running quantum programs."""
 

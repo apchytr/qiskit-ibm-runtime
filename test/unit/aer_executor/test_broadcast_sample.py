@@ -12,7 +12,7 @@
 
 """Tests for ``broadcast_sample``."""
 
-import unittest
+from unittest import skipUnless
 
 import numpy as np
 from qiskit.circuit import Parameter, QuantumCircuit
@@ -30,7 +30,7 @@ if optionals.HAS_AER:
     from qiskit_ibm_runtime.aer_executor.broadcast_sample import broadcast_sample
 
 
-@unittest.skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
+@skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestBroadcastSample(IBMTestCase):
     """Tests for ``broadcast_sample``."""
 

@@ -12,8 +12,8 @@
 
 """Tests for InsertNoisePass."""
 
-import unittest
 import warnings
+from unittest import skipUnless
 
 import numpy as np
 from ddt import data, ddt, unpack
@@ -42,7 +42,7 @@ def _noise_error_ops(circuit: QuantumCircuit) -> list:
 
 
 @ddt
-@unittest.skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
+@skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestInsertNoisePass(IBMTestCase):
     """Tests for InsertNoisePass."""
 

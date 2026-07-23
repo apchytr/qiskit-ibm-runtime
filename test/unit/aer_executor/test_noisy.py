@@ -12,8 +12,8 @@
 
 """Unit tests."""
 
-import unittest
 from itertools import islice, product
+from unittest import skipUnless
 
 from ddt import data, ddt, unpack
 from qiskit.circuit import QuantumCircuit
@@ -90,7 +90,7 @@ def _circ_b():
 
 
 @ddt
-@unittest.skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
+@skipUnless(condition=optionals.HAS_AER, reason="qiskit-aer is required to run this test")
 class TestNoisySimulation(IBMTestCase):
     """Test noisy simulation."""
 
