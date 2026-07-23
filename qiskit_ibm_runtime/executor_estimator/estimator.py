@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -28,6 +27,7 @@ from ..exceptions import IBMInputValueError
 from ..executor import Executor
 from ..executor.dynamical_decoupling import apply_dynamical_decoupling
 from ..fake_provider.local_service import QiskitRuntimeLocalService
+from ..options_models.converters import estimator_options_to_executor_options
 from ..options_models.estimator import EstimatorOptions
 from .pec.prepare_pec import prepare_pec
 from .prepare import prepare
@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     from qiskit.providers import BackendV2
 
     from ..batch import Batch
-    from ..fake_provider.local_runtime_job import LocalRuntimeJob
     from ..runtime_job_v2 import RuntimeJobV2
     from ..session import Session
 
@@ -80,7 +79,7 @@ Fields:
 
 
 class EstimatorV2(BaseEstimatorV2):
-    """Executor-based EstimatorV2 primitive for Qiskit Runtime.
+    """Executor-based EstimatorV2 primitive for IBM Quantum Compute (formerly Qiskit Runtime).
 
     This is an implementation of EstimatorV2 built on top of the Executor primitive,
     enabling transparent client-side processing with faster feedback loops and greater
@@ -119,7 +118,7 @@ class EstimatorV2(BaseEstimatorV2):
             * A :class:`~qiskit_ibm_runtime.Session` if you are using session execution mode.
             * A :class:`~qiskit_ibm_runtime.Batch` if you are using batch execution mode.
 
-            Refer to the `Qiskit Runtime documentation
+            Refer to the `IBM Quantum Compute documentation
             <https://quantum.cloud.ibm.com/docs/guides/execution-modes>`_
             for more information about execution modes.
 
@@ -170,9 +169,30 @@ class EstimatorV2(BaseEstimatorV2):
         """Return the unique boxed layers found across the given PUBs.
 
         The returned list contains one instance of each distinct boxed layer (represented as a
-        :class:`~.CircuitInstruction`) appearing in the input PUBs. This list can be passed
-        directly to the :meth:`~.qiskit_ibm_runtime.noise_learner_v3.NoiseLearnerV3.run` method
-        for characterization, avoiding redundant learning of identical layers.
+        :class:`~.CircuitInstruction`) appearing in the input PUBs.
+
+        For noise learning, keep only the boxes that carry an :class:`~samplomatic.InjectNoise`
+        annotation:
+
+        .. code-block:: python
+
+            from samplomatic import InjectNoise
+            from samplomatic.utils import get_annotation
+
+            est = EstimatorV2(mode, options)
+            est.options.resilience.pec_mitigation = True
+
+            layers = [
+                layer
+                for layer in est.find_unique_layers(pubs)
+                if get_annotation(layer.operation, InjectNoise)
+            ]
+
+            results = NoiseLearnerV3(mode).run(layers).result()
+            noise_model = results.to_dict(layers)
+
+            # Assign the learned model so PEC uses it on the next run.
+            est.options.resilience.noise_model_mapping = noise_model
 
         Args:
             pubs: The list of PUBs to return a list of unique boxes for.
@@ -191,7 +211,7 @@ class EstimatorV2(BaseEstimatorV2):
         )
 
     def finalize_options(self) -> EstimatorOptions:
-        """Construct and finalize the runtime estimator options.
+        """Construct and finalize the Estimator options.
 
         This method combines the configured resilience level with the user-provided option
         to produce the final :class:`~.EstimatorOptions` instance used inside a call to
@@ -249,7 +269,7 @@ class EstimatorV2(BaseEstimatorV2):
         to executor inputs can be resource intensive and cause a delay between invoking the function
         and the ``job`` being submitted. In order to check the progress of the call, it is
         recommended to setup logging (with an ``INFO`` level) - see
-        `Qiskit Runtime documentation
+        `IBM Quantum Compute documentation
         <https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime/runtime-service#logging>`_
         for more information.
 
@@ -293,7 +313,16 @@ class EstimatorV2(BaseEstimatorV2):
         # Check if we're in local simulator mode
         if self._executor is None:
             logger.info("Running in local simulator mode")
-            return self._run_simulator(coerced_pubs, options, shots)
+
+            options_dict = options.model_dump()
+            options_dict["default_shots"] = shots
+
+            return self._service._run(
+                program_id="estimator",
+                inputs={"pubs": coerced_pubs, "options": options_dict},
+                options={"backend": self._backend},
+                calibration_id=None,
+            )
 
         if options.dynamical_decoupling.enable:
             for pub in coerced_pubs:
@@ -363,19 +392,15 @@ class EstimatorV2(BaseEstimatorV2):
                 dd_options=options.dynamical_decoupling,
                 quantum_program=quantum_program,
             )
-        resilience_options = asdict(options.resilience)  # type: ignore[call-overload]
-        resilience_options.pop("noise_model_mapping")
         # Serialize options (assuming passthrough is correctly configured)
         quantum_program.passthrough_data["post_processor"]["options"] = {  # type: ignore[index, call-overload]
-            "twirling": asdict(options.twirling),  # type: ignore[call-overload]
-            "dynamical_decoupling": asdict(options.dynamical_decoupling),  # type: ignore[call-overload]
-            "resilience": resilience_options,
+            "twirling": self.options.twirling.model_dump(),
+            "dynamical_decoupling": self.options.dynamical_decoupling.model_dump(),
+            "resilience": self.options.resilience.model_dump(exclude={"noise_model_mapping"}),
         }
 
-        executor_options = options.to_executor_options()
-
         # Set executor options
-        self._executor.options = executor_options
+        self._executor.options = estimator_options_to_executor_options(options)
 
         # Submit to executor
         logger.info(
@@ -386,33 +411,3 @@ class EstimatorV2(BaseEstimatorV2):
         )
 
         return self._executor.run(quantum_program)
-
-    def _run_simulator(
-        self, pubs: list[EstimatorPub], options: EstimatorOptions, shots: int
-    ) -> LocalRuntimeJob:
-        """Run estimator in local simulator mode using BackendEstimatorV2.
-
-        Args:
-            pubs: List of estimator PUBs to run.
-            options: The user options, finalized.
-            shots: The number of shots to use.
-
-        Returns:
-            A LocalRuntimeJob.
-        """
-        options_dict = asdict(options)  # type: ignore[call-overload]
-        options_dict["default_shots"] = shots
-
-        inputs = {
-            "pubs": pubs,
-            "options": options_dict,
-        }
-
-        runtime_options = {"backend": self._backend}
-
-        return self._service._run(
-            program_id="estimator",
-            inputs=inputs,
-            options=runtime_options,
-            calibration_id=None,
-        )
