@@ -34,6 +34,7 @@ if HAS_QNL:
         suffix_creg_identifier,
     )
     from qiskit_noise_learning.protocols import process_vanilla_result
+    from qiskit_noise_learning.protocols.vanilla import _fraction_kept, _success_rates
 
 
 @HAS_QNL.require_in_call
@@ -71,7 +72,12 @@ def noise_learner_v3_post_processor_v0_1(result: QuantumProgramResult) -> NoiseL
             creg_identifier=suffix_creg_identifier(DEFAULT_POST_CHECK_SUFFIX), mode=post["strategy"]
         )
         raw_data_stage = raw_data_stage if raw_data_stage is None else raw_data_stage + post_stage
-    noise_maps, _, _ = process_vanilla_result(result, raw_data_stage=raw_data_stage)
+    noise_maps, _, fit = process_vanilla_result(result, raw_data_stage=raw_data_stage)
+
+    fraction_kept = _fraction_kept(fit.raw_data)
+    print(f"{fraction_kept=}")
+    success_rates = _success_rates(fit.raw_data, suffix_creg_identifier(DEFAULT_POST_CHECK_SUFFIX))
+    print(f"{success_rates=}")
     return NoiseLearnerV3Results(
         [
             NoiseLearnerV3Result.from_generators(
